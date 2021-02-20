@@ -72,7 +72,7 @@ class DamageableActor:public Actor {
         virtual ~DamageableActor();
         int getHealth();
         void setHealth(int health);
-        void damageGhostRacer(int hit_damage);
+        virtual void damage(int hit_damage) = 0;
         virtual void doSomething() = 0;
         virtual void move() = 0;
     private:
@@ -87,6 +87,7 @@ class GhostRacer:public DamageableActor {
         void addHolyWater(int n_holy_water);
         double getForwardSpeed();
         virtual bool isOffscreen();
+        virtual void damage(int hit_damage);
         virtual void heal(int heal_points);
         virtual void doSomething();
         virtual void move();
@@ -101,17 +102,26 @@ class IntelligentAgent:public DamageableActor {
         IntelligentAgent(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size);
         virtual ~IntelligentAgent();
         virtual void doSomething() = 0;
+        virtual void damage(int hit_damage) = 0;
         virtual void move();
         int getMovementPlan();
-        void decrementMovementPlan();
-        void pickNewMovementPlan();
-        virtual void damage(int hit_damage) = 0;
+        void setMovementPlan(int movement_plan);
+        virtual void pickNewMovementPlan() = 0;
         
     private:
         int m_movement_plan;
 };
 
-class HumanPed:public IntelligentAgent {
+class Pedestrian:public IntelligentAgent {
+public:
+    Pedestrian(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size);
+    virtual ~Pedestrian();
+    virtual void doSomething() = 0;
+    virtual void damage(int hit_damage) = 0;
+    virtual void pickNewMovementPlan();
+};
+
+class HumanPed:public Pedestrian {
     public:
         HumanPed(StudentWorld* world, double startX, double startY);
         virtual ~HumanPed();
@@ -119,7 +129,7 @@ class HumanPed:public IntelligentAgent {
         virtual void damage(int hit_damage);
 };
 
-class ZombiePed:public IntelligentAgent {
+class ZombiePed:public Pedestrian {
     public:
         ZombiePed(StudentWorld* world, double startX, double startY);
         virtual ~ZombiePed();
@@ -128,6 +138,18 @@ class ZombiePed:public IntelligentAgent {
         
     private:
         int m_till_next_grunt = 0;
+};
+
+class ZombieCab:public IntelligentAgent {
+public:
+    ZombieCab(StudentWorld* world, double startX, double startY);
+    virtual ~ZombieCab();
+    virtual void doSomething();
+    virtual void damage(int hit_damage);
+    virtual void pickNewMovementPlan();
+    
+private:
+    bool hasDamagedGR;
 };
 
 #endif // ACTOR_H_

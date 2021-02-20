@@ -27,7 +27,10 @@ public:
     void addNewBorderLines();
     void addNewHumanPed();
     void addNewZombiePed();
+    void addNewZombieCabs();
     bool overlappingGR(Actor* ac);
+    Actor* closestCollisionAvoidanceWorthyActor(ZombieCab* zc, string front_or_back);
+    Actor* closestCollisionAvoidanceWorthyActor(string top_or_bottom, double left_boundary, double right_boundary);
     void saveSoul();
     void addToScore(int score);
     void updateStatusText();

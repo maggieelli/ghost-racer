@@ -134,6 +134,19 @@ void StudentWorld::addNewZombiePed() {
     }
 }
 
+void StudentWorld::addNewZombieCabs() {
+    int cur_lane = randInt(1, 3);
+    for (int i = 0; i < 3; i++) {
+        
+        if (cur_lane < 3) {
+            cur_lane++;
+        }
+        else {
+            cur_lane = 1;
+        }
+    }
+}
+
 bool StudentWorld::overlappingGR(Actor* ac) {
     double delta_x = abs(m_gr->getX() - ac->getX());
     double delta_y = abs(m_gr->getY() - ac->getY());
@@ -142,6 +155,51 @@ bool StudentWorld::overlappingGR(Actor* ac) {
         return true;
     }
     return false;
+}
+
+Actor* StudentWorld::closestCollisionAvoidanceWorthyActor(ZombieCab* zc, string front_or_back) {
+    list<Actor*>::iterator it;
+    it = actorList.begin();
+    Actor* closestFront = nullptr;
+    Actor* closestBack = nullptr;
+    while (it != actorList.end()) {
+        if ((*it) != zc && (*it)->isCollisionAvoidanceWorthy()) {
+            if (abs((*it)->getX() - zc->getX()) < ROAD_WIDTH/6) {
+                if (front_or_back == "front") {
+                    if ((*it)->getY() - zc->getY() > 0) {
+                        if (closestFront == nullptr) {
+                            closestFront = (*it);
+                        }
+                        else {
+                            if ((*it)->getY() < closestFront->getY()) {
+                                closestFront = (*it);
+                            }
+                        }
+                    }
+                }
+                else if (front_or_back == "back") {
+                    if ((*it)->getY() - zc->getY() < 0) {
+                        if (closestBack == nullptr) {
+                            closestBack = (*it);
+                        }
+                        else {
+                            if ((*it)->getY() > closestBack->getY()) {
+                                closestBack = (*it);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (front_or_back == "front") {
+        return closestFront;
+    }
+    return closestBack;
+}
+
+Actor* closestCollisionAvoidanceWorthyActor(string top_or_bottom, double left_boundary, double right_boundary) {
+    // TODO
 }
 
 void StudentWorld::saveSoul() {

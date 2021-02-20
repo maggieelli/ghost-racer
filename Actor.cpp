@@ -97,10 +97,6 @@ void DamageableActor::setHealth(int health) {
     m_health = health;
 }
 
-void DamageableActor::damageGhostRacer(int hit_damage) {
-    getWorld()->getGR()->setHealth(getWorld()->getGR()->getHealth() - hit_damage);
-}
-
 GhostRacer::GhostRacer(StudentWorld* world)
 : DamageableActor(world, 100, 0, 0, IID_GHOST_RACER, 128, 32, 90, 4) {
     m_holy_water = 10;
@@ -128,6 +124,14 @@ double GhostRacer::getForwardSpeed() {
     return m_forward_speed;
 }
 
+void GhostRacer::damage(int hit_damage) {
+    setHealth(getHealth() - hit_damage);
+    if (getHealth() <= 0) {
+        die();
+        getWorld()->playSound(SOUND_PLAYER_DIE);
+    }
+}
+
 void GhostRacer::heal(int heal_points) {
     if (getHealth() < 100) {
         setHealth(getHealth() + heal_points);
@@ -135,22 +139,20 @@ void GhostRacer::heal(int heal_points) {
 }
 
 void GhostRacer::doSomething() {
-    if (getHealth() <= 0) {
-        getWorld()->playSound(SOUND_PLAYER_DIE);
-        die();
+    if (!isAlive()) {
         return;
     }
     if (isOffscreen()) {
         if (getX() <= LEFT_EDGE) {
             if (getDirection() > 90) {
-                setHealth(getHealth() - 10);
+                damage(10);
                 setDirection(82);
                 getWorld()->playSound(SOUND_VEHICLE_CRASH);
             }
         }
         else if (getX() >= RIGHT_EDGE) {
             if (getDirection() < 90) {
-                setHealth(getHealth() - 10);
+                damage(10);
                 setDirection(98);
                 getWorld()->playSound(SOUND_VEHICLE_CRASH);
             }
@@ -218,17 +220,24 @@ int IntelligentAgent::getMovementPlan() {
     return m_movement_plan;
 }
 
-void IntelligentAgent::decrementMovementPlan() {
-    m_movement_plan--;
+void IntelligentAgent::setMovementPlan(int movement_plan) {
+    m_movement_plan = movement_plan;
 }
 
-void IntelligentAgent::pickNewMovementPlan() {
+Pedestrian::Pedestrian(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size)
+: IntelligentAgent(world, health, imageID, startX, startY, startDirection, size){
+}
+
+Pedestrian::~Pedestrian() {
+}
+
+void Pedestrian::pickNewMovementPlan() {
     int new_horiz_speed = randInt(-3, 3);
     while (new_horiz_speed == 0) {
         new_horiz_speed = randInt(-3, 3);
     }
     setHorizSpeed(new_horiz_speed);
-    m_movement_plan = randInt(4, 32);
+    setMovementPlan(randInt(4, 32));
     if (getHorizSpeed() < 0) {
         setDirection(180);
     }
@@ -238,7 +247,7 @@ void IntelligentAgent::pickNewMovementPlan() {
 }
 
 HumanPed::HumanPed(StudentWorld* world, double startX, double startY)
-: IntelligentAgent(world, 2, IID_HUMAN_PED, startX, startY, 0, 2) {
+: Pedestrian(world, 2, IID_HUMAN_PED, startX, startY, 0, 2) {
 }
 
 HumanPed::~HumanPed() {
@@ -256,7 +265,7 @@ void HumanPed::doSomething() {
     if (!isAlive()) {
         return;
     }
-    decrementMovementPlan();
+    setMovementPlan(getMovementPlan() - 1);
     if (getMovementPlan() > 0) {
         return;
     }
@@ -277,7 +286,7 @@ void HumanPed::damage(int hit_damage) {
 }
 
 ZombiePed::ZombiePed(StudentWorld* world, double startX, double startY)
-: IntelligentAgent(world, 2, IID_ZOMBIE_PED, startX, startY, 0, 3) {
+: Pedestrian(world, 2, IID_ZOMBIE_PED, startX, startY, 0, 3) {
     m_till_next_grunt = 0;
 }
 
@@ -293,7 +302,7 @@ void ZombiePed::doSomething() {
         m_till_next_grunt = 20;
     }
     if (getWorld()->overlappingGR(this)) {
-        damageGhostRacer(5);
+        getWorld()->getGR()->damage(5);
         damage(2);
         return;
     }
@@ -315,7 +324,7 @@ void ZombiePed::doSomething() {
         return;
     }
     if (getMovementPlan() > 0) {
-        decrementMovementPlan();
+        setMovementPlan(getMovementPlan() - 1);
         return;
     }
     pickNewMovementPlan();
@@ -328,8 +337,75 @@ void ZombiePed::damage(int hit_damage) {
         die();
         getWorld()->playSound(SOUND_PED_DIE);
         if(!getWorld()->overlappingGR(this)) {
-            // TODO add healing goodie to world
+            // TODO chance add healing goodie to world
         }
         getWorld()->increaseScore(150);
     }
+    else {
+        getWorld()->playSound(SOUND_PED_HURT);
+    }
+}
+
+ZombieCab::ZombieCab(StudentWorld* world, double startX, double startY)
+: IntelligentAgent(world, 3, IID_ZOMBIE_CAB, startX, startY, 90, 4){
+    hasDamagedGR = false;
+}
+
+ZombieCab::~ZombieCab() {
+}
+
+void ZombieCab::doSomething() {
+    if (!isAlive()) {
+        return;
+    }
+    if (getWorld()->overlappingGR(this) && hasDamagedGR == false) {
+        getWorld()->playSound(SOUND_VEHICLE_CRASH);
+        getWorld()->getGR()->damage(20);
+        if (getX() <= getWorld()->getGR()->getX()) {
+            setHorizSpeed(-5);
+            setDirection(120 + randInt(0, 19));
+        }
+        else {
+            setHorizSpeed(5);
+            setDirection(60 - randInt(0, 19));
+        }
+        hasDamagedGR = true;
+    }
+    move();
+    if (getVertSpeed() > getWorld()->getGR()->getVertSpeed()) {
+        Actor* closestActor = getWorld()->closestCollisionAvoidanceWorthyActor(this, "front");
+        if (closestActor->getY() - getY() < 96) {
+            setVertSpeed(getVertSpeed() - 0.5);
+            return;
+        }
+    }
+    if (getVertSpeed() <= getWorld()->getGR()->getVertSpeed()) {
+        Actor* closestActor = getWorld()->closestCollisionAvoidanceWorthyActor(this, "back");
+        if (getY() - closestActor->getY() < 96) {
+            setVertSpeed(getVertSpeed() + 0.5);
+            return;
+        }
+    }
+    setMovementPlan(getMovementPlan() - 1);
+    if (getMovementPlan() > 0) {
+        return;
+    }
+    pickNewMovementPlan();
+}
+
+void ZombieCab::damage(int hit_damage) {
+    setHealth(getHealth() - hit_damage);
+    if (getHealth() <= 0) {
+        die();
+        getWorld()->playSound(SOUND_VEHICLE_DIE);
+        // TODO chance to drop oil slick
+        getWorld()->increaseScore(200);
+        return;
+    }
+    getWorld()->playSound(SOUND_VEHICLE_HURT);
+}
+
+void ZombieCab::pickNewMovementPlan() {
+    setMovementPlan(randInt(4, 32));
+    setVertSpeed(getVertSpeed() + randInt(-2, 2));
 }
