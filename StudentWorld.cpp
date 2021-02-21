@@ -15,7 +15,7 @@ StudentWorld::StudentWorld(string assetPath)
 : GameWorld(assetPath)
 {
     m_gr = nullptr;
-    m_last_white_border_line = nullptr;
+    m_last_white_border_y = 0;
     m_nSouls = getLevel() * 2 + 5;
     m_soulsSaved = 0;
     m_bonus = 5000;
@@ -64,10 +64,12 @@ int StudentWorld::move()
         }
         it++;
     }
+    m_last_white_border_y += (-4 - m_gr->getVertSpeed());
     // TODO add new actors
     addNewBorderLines();
     addNewHumanPed();
     addNewZombiePed();
+    addNewZombieCabs();
     // TODO bonus and update status text
     if (m_bonus > 0) {
         m_bonus--;
@@ -95,24 +97,26 @@ void StudentWorld::insertBorderLines() {
         actorList.push_back(new BorderLine(this, IID_YELLOW_BORDER_LINE, LEFT_EDGE, i * SPRITE_HEIGHT));
         actorList.push_back(new BorderLine(this, IID_YELLOW_BORDER_LINE, RIGHT_EDGE, i * SPRITE_HEIGHT));
     }
+    double last_y = 0;
     for (int i = 0; i < (VIEW_HEIGHT / (4 * SPRITE_HEIGHT)); i++) {
         actorList.push_back(new BorderLine(this, IID_WHITE_BORDER_LINE, LEFT_EDGE + ROAD_WIDTH / 3, i * (4 * SPRITE_HEIGHT)));
-        m_last_white_border_line = new BorderLine(this, IID_WHITE_BORDER_LINE, RIGHT_EDGE - ROAD_WIDTH / 3, i * (4 * SPRITE_HEIGHT));
-        actorList.push_back(m_last_white_border_line);
+        actorList.push_back(new BorderLine(this, IID_WHITE_BORDER_LINE, RIGHT_EDGE - ROAD_WIDTH / 3, i * (4 * SPRITE_HEIGHT)));
+        last_y = i * (4 * SPRITE_HEIGHT);
     }
+    m_last_white_border_y = last_y;
 }
 
 void StudentWorld::addNewBorderLines() {
     int new_border_y = VIEW_HEIGHT - SPRITE_HEIGHT;
-    int delta_y = new_border_y - m_last_white_border_line->getY();
+    int delta_y = new_border_y - m_last_white_border_y;
     if (delta_y >= SPRITE_HEIGHT) {
         actorList.push_back(new BorderLine(this, IID_YELLOW_BORDER_LINE, LEFT_EDGE, new_border_y));
         actorList.push_back(new BorderLine(this, IID_YELLOW_BORDER_LINE, RIGHT_EDGE, new_border_y));
     }
     if (delta_y >= (4 * SPRITE_HEIGHT)) {
         actorList.push_back(new BorderLine(this, IID_WHITE_BORDER_LINE, LEFT_EDGE + ROAD_WIDTH / 3, new_border_y));
-        m_last_white_border_line = new BorderLine(this, IID_WHITE_BORDER_LINE, RIGHT_EDGE - ROAD_WIDTH / 3, new_border_y);
-        actorList.push_back(m_last_white_border_line);
+        actorList.push_back(new BorderLine(this, IID_WHITE_BORDER_LINE, RIGHT_EDGE - ROAD_WIDTH / 3, new_border_y));
+        m_last_white_border_y = new_border_y;
     }
 }
 
@@ -135,14 +139,27 @@ void StudentWorld::addNewZombiePed() {
 }
 
 void StudentWorld::addNewZombieCabs() {
-    int cur_lane = randInt(1, 3);
-    for (int i = 0; i < 3; i++) {
-        
-        if (cur_lane < 3) {
-            cur_lane++;
-        }
-        else {
-            cur_lane = 1;
+    int chance = max(100 - getLevel() * 10, 20);
+    int rand = randInt(0, chance - 1);
+    if (rand == 0) {
+        int cur_lane = randInt(0, 2);
+        for (int i = 0; i < 3; i++) {
+            Actor* ac_bottom = closestCollisionAvoidanceWorthyActor("bottom", LEFT_EDGE + (ROAD_WIDTH/3 * cur_lane), LEFT_EDGE + (ROAD_WIDTH/3 * (1 + cur_lane)));
+            if (ac_bottom == nullptr || ac_bottom->getY() > (VIEW_HEIGHT / 3)) {
+                actorList.push_back(new ZombieCab(this, m_gr->getVertSpeed() + randInt(2, 4), FIRST_LANE_CENTER + (ROAD_WIDTH/3 * cur_lane), SPRITE_HEIGHT/2));
+                break;
+            }
+            Actor* ac_top = closestCollisionAvoidanceWorthyActor("top", LEFT_EDGE + (ROAD_WIDTH/3 * cur_lane), LEFT_EDGE + (ROAD_WIDTH/3 * (1 + cur_lane)));
+            if (ac_top == nullptr || ac_top->getY() < (VIEW_HEIGHT * 2 / 3)) {
+                actorList.push_back(new ZombieCab(this, m_gr->getVertSpeed() - randInt(2, 4), FIRST_LANE_CENTER + (ROAD_WIDTH/3 * cur_lane), VIEW_HEIGHT - SPRITE_HEIGHT/2));
+                break;
+            }
+            if (cur_lane < 2) {
+                cur_lane++;
+            }
+            else {
+                cur_lane = 0;
+            }
         }
     }
 }
@@ -191,6 +208,7 @@ Actor* StudentWorld::closestCollisionAvoidanceWorthyActor(ZombieCab* zc, string 
                 }
             }
         }
+        it++;
     }
     if (front_or_back == "front") {
         return closestFront;
@@ -198,8 +216,42 @@ Actor* StudentWorld::closestCollisionAvoidanceWorthyActor(ZombieCab* zc, string 
     return closestBack;
 }
 
-Actor* closestCollisionAvoidanceWorthyActor(string top_or_bottom, double left_boundary, double right_boundary) {
-    // TODO
+Actor* StudentWorld::closestCollisionAvoidanceWorthyActor(string top_or_bottom, double left_boundary, double right_boundary) {
+    list<Actor*>::iterator it;
+    it = actorList.begin();
+    Actor* closestTop = nullptr;
+    Actor* closestBottom = nullptr;
+    while (it != actorList.end()) {
+        if ((*it)->isCollisionAvoidanceWorthy()) {
+            if ((*it)->getX() > left_boundary && (*it)->getX() < right_boundary) {
+                if (top_or_bottom == "top") {
+                    if (closestTop == nullptr) {
+                        closestTop = (*it);
+                    }
+                    else {
+                        if ((*it)->getY() > closestTop->getY()) {
+                            closestTop = (*it);
+                        }
+                    }
+                }
+                else if (top_or_bottom == "bottom") {
+                    if (closestBottom == nullptr) {
+                        closestBottom = (*it);
+                    }
+                    else {
+                        if ((*it)->getY() < closestBottom->getY()) {
+                            closestBottom = (*it);
+                        }
+                    }
+                }
+            }
+        }
+        it++;
+    }
+    if (top_or_bottom == "top") {
+        return closestTop;
+    }
+    return closestBottom;
 }
 
 void StudentWorld::saveSoul() {
@@ -217,4 +269,3 @@ void StudentWorld::updateStatusText() {
     status << "Bonus: " << m_bonus;
     setGameStatText(status.str());
 }
-

@@ -33,7 +33,6 @@ class Actor:public GraphObject {
         virtual ~Actor();
         virtual bool isOffscreen();
         virtual void doSomething() = 0;
-        virtual void move() = 0;
         bool isAlive();
         void die();
         StudentWorld* getWorld();
@@ -41,6 +40,7 @@ class Actor:public GraphObject {
         void setVertSpeed(double speed);
         double getHorizSpeed();
         void setHorizSpeed(double speed);
+        virtual void move();
         bool isCollisionAvoidanceWorthy();
     
     private:
@@ -56,7 +56,6 @@ class Object:public Actor {
         Object(StudentWorld* world, double vert_speed, double horiz_speed, int imageID, double startX, double startY, int startDirection, double size, int depth = 0);
         virtual ~Object();
         virtual void doSomething() = 0;
-        virtual void move();
 };
 
 class BorderLine:public Object {
@@ -74,7 +73,7 @@ class DamageableActor:public Actor {
         void setHealth(int health);
         virtual void damage(int hit_damage) = 0;
         virtual void doSomething() = 0;
-        virtual void move() = 0;
+    
     private:
         int m_health;
 };
@@ -85,7 +84,6 @@ class GhostRacer:public DamageableActor {
         virtual ~GhostRacer();
         int getHolyWater();
         void addHolyWater(int n_holy_water);
-        double getForwardSpeed();
         virtual bool isOffscreen();
         virtual void damage(int hit_damage);
         virtual void heal(int heal_points);
@@ -94,16 +92,14 @@ class GhostRacer:public DamageableActor {
         
     private:
         int m_holy_water;
-        double m_forward_speed;
 };
 
 class IntelligentAgent:public DamageableActor {
     public:
-        IntelligentAgent(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size);
+        IntelligentAgent(StudentWorld* world, int health, double vert_speed, int imageID, double startX, double startY, int startDirection, double size);
         virtual ~IntelligentAgent();
         virtual void doSomething() = 0;
         virtual void damage(int hit_damage) = 0;
-        virtual void move();
         int getMovementPlan();
         void setMovementPlan(int movement_plan);
         virtual void pickNewMovementPlan() = 0;
@@ -142,7 +138,7 @@ class ZombiePed:public Pedestrian {
 
 class ZombieCab:public IntelligentAgent {
 public:
-    ZombieCab(StudentWorld* world, double startX, double startY);
+    ZombieCab(StudentWorld* world, double vert_speed, double startX, double startY);
     virtual ~ZombieCab();
     virtual void doSomething();
     virtual void damage(int hit_damage);

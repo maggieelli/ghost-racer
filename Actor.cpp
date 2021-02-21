@@ -52,19 +52,25 @@ void Actor::setHorizSpeed(double speed) {
     m_horiz_speed = speed;
 }
 
+void Actor::move() {
+    double new_y = getY() + (getVertSpeed() - getWorld()->getGR()->getVertSpeed());
+    double new_x = getX() + getHorizSpeed();
+    moveTo(new_x, new_y);
+    if (isOffscreen()) {
+        die();
+        return;
+    }
+}
+
 bool Actor::isCollisionAvoidanceWorthy() {
     return m_collision_avoidance_worthy;
 }
 
 Object::Object(StudentWorld* world, double vert_speed, double horiz_speed, int imageID, double startX, double startY, int startDirection, double size, int depth)
-    : Actor(world, vert_speed, horiz_speed, false, imageID, startX, startY, startDirection, size, 1) {
+    : Actor(world, vert_speed, horiz_speed, false, imageID, startX, startY, startDirection, size, depth) {
 }
 
 Object::~Object() {
-}
-
-void Object::move() {
-    moveTo(getX(), getY() + (getVertSpeed() - getWorld()->getGR()->getVertSpeed()));
 }
 
 BorderLine::BorderLine(StudentWorld* world, int imageID, double startX, double startY)
@@ -120,10 +126,6 @@ void GhostRacer::addHolyWater(int n_holy_water) {
     m_holy_water += n_holy_water;
 }
 
-double GhostRacer::getForwardSpeed() {
-    return m_forward_speed;
-}
-
 void GhostRacer::damage(int hit_damage) {
     setHealth(getHealth() - hit_damage);
     if (getHealth() <= 0) {
@@ -176,44 +178,32 @@ void GhostRacer::doSomething() {
                     }
                     break;
                 case KEY_PRESS_UP:
-                    if (m_forward_speed < 5) {
-                        m_forward_speed++;
+                    if (getVertSpeed() < 5) {
+                        setVertSpeed(getVertSpeed() + 1);
                     }
                     break;
                 case KEY_PRESS_DOWN:
-                    if (m_forward_speed > -1) {
-                        m_forward_speed--;
+                    if (getVertSpeed() > -1) {
+                        setVertSpeed(getVertSpeed() - 1);
                     }
                     break;
             }
         }
     }
-    setVertSpeed(m_forward_speed * sin(getDirection() * M_PI / 180));
     move();
 }
 
 void GhostRacer::move() {
-    // TODO
     double delta_x = cos(getDirection() * M_PI / 180) * 4;
     moveTo(getX() + delta_x, getY());
 }
 
-IntelligentAgent::IntelligentAgent(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size)
-    : DamageableActor(world, health, -4, 0, imageID, startX, startY, startDirection, size) {
+IntelligentAgent::IntelligentAgent(StudentWorld* world, int health, double vert_speed, int imageID, double startX, double startY, int startDirection, double size)
+    : DamageableActor(world, health, vert_speed, 0, imageID, startX, startY, startDirection, size) {
         m_movement_plan = 0;
 }
 
 IntelligentAgent::~IntelligentAgent() {
-}
-
-void IntelligentAgent::move() {
-    double new_y = getY() + (getVertSpeed() - getWorld()->getGR()->getVertSpeed());
-    double new_x = getX() + getHorizSpeed();
-    moveTo(new_x, new_y);
-    if (isOffscreen()) {
-        die();
-        return;
-    }
 }
 
 int IntelligentAgent::getMovementPlan() {
@@ -225,7 +215,7 @@ void IntelligentAgent::setMovementPlan(int movement_plan) {
 }
 
 Pedestrian::Pedestrian(StudentWorld* world, int health, int imageID, double startX, double startY, int startDirection, double size)
-: IntelligentAgent(world, health, imageID, startX, startY, startDirection, size){
+: IntelligentAgent(world, health, -4, imageID, startX, startY, startDirection, size){
 }
 
 Pedestrian::~Pedestrian() {
@@ -346,8 +336,8 @@ void ZombiePed::damage(int hit_damage) {
     }
 }
 
-ZombieCab::ZombieCab(StudentWorld* world, double startX, double startY)
-: IntelligentAgent(world, 3, IID_ZOMBIE_CAB, startX, startY, 90, 4){
+ZombieCab::ZombieCab(StudentWorld* world, double vert_speed, double startX, double startY)
+: IntelligentAgent(world, 3, vert_speed, IID_ZOMBIE_CAB, startX, startY, 90, 4){
     hasDamagedGR = false;
 }
 
@@ -374,14 +364,14 @@ void ZombieCab::doSomething() {
     move();
     if (getVertSpeed() > getWorld()->getGR()->getVertSpeed()) {
         Actor* closestActor = getWorld()->closestCollisionAvoidanceWorthyActor(this, "front");
-        if (closestActor->getY() - getY() < 96) {
+        if (closestActor != nullptr && closestActor->getY() - getY() < 96) {
             setVertSpeed(getVertSpeed() - 0.5);
             return;
         }
     }
     if (getVertSpeed() <= getWorld()->getGR()->getVertSpeed()) {
         Actor* closestActor = getWorld()->closestCollisionAvoidanceWorthyActor(this, "back");
-        if (getY() - closestActor->getY() < 96) {
+        if (closestActor != nullptr && closestActor != getWorld()->getGR() && getY() - closestActor->getY() < 96) {
             setVertSpeed(getVertSpeed() + 0.5);
             return;
         }

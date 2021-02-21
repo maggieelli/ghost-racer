@@ -13,6 +13,7 @@ using namespace std;
 
 const int LEFT_EDGE = ROAD_CENTER - ROAD_WIDTH / 2;
 const int RIGHT_EDGE = ROAD_CENTER + ROAD_WIDTH / 2;
+const int FIRST_LANE_CENTER = ROAD_CENTER - ROAD_WIDTH / 3;
 
 class StudentWorld : public GameWorld
 {
@@ -38,11 +39,10 @@ public:
 private:
     list<Actor*> actorList;
     GhostRacer* m_gr;
-    BorderLine* m_last_white_border_line;
+    double m_last_white_border_y;
     int m_nSouls;
     int m_soulsSaved;
     int m_bonus;
 };
 
 #endif // STUDENTWORLD_H_
-
