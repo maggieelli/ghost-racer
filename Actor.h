@@ -6,6 +6,7 @@ class StudentWorld;
 
 const double GHOST_RACER_X = 128;
 const double GHOST_RACER_Y = 32;
+const int GHOST_RACER_START_HEALTH = 100;
 const int ZOMBIE_PED_SCORE = 150;
 const int ZOMBIE_CAB_SCORE = 200;
 const int HEALING_GOODIE_SCORE = 250;
@@ -62,19 +63,6 @@ class Actor:public GraphObject {
         double m_vert_speed;
         double m_horiz_speed;
         bool m_collision_avoidance_worthy;
-};
-
-class Object:public Actor {
-    public:
-        Object(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, int depth = 2);
-        virtual ~Object();
-};
-
-class BorderLine:public Object {
-    public:
-        BorderLine(StudentWorld* world, int imageID, double startX, double startY);
-        virtual ~BorderLine();
-        virtual void doSomething();
 };
 
 class DamageableActor:public Actor {
@@ -164,6 +152,32 @@ class ZombieCab:public IntelligentAgent {
         bool hasDamagedGR;
 };
 
+class Object:public Actor {
+    public:
+        Object(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, int depth = 2);
+        virtual ~Object();
+};
+
+class BorderLine:public Object {
+    public:
+        BorderLine(StudentWorld* world, int imageID, double startX, double startY);
+        virtual ~BorderLine();
+        virtual void doSomething();
+};
+
+class HolyWaterProjectile:public Object {
+    public:
+        HolyWaterProjectile(StudentWorld* world, double startX, double startY, int startDirection);
+        virtual ~HolyWaterProjectile();
+        virtual void doSomething();
+    
+    protected:
+        virtual void move();
+        
+    private:
+        int m_pixels_moved;
+};
+
 class GhostRacerActivatedObject:public Object {
     public:
         GhostRacerActivatedObject(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, bool mustRotate = false);
@@ -181,6 +195,15 @@ class OilSlick:public GhostRacerActivatedObject {
     public:
         OilSlick(StudentWorld* world, double startX, double startY, double size);
         virtual ~OilSlick();
+    
+    protected:
+        virtual void activate();
+};
+
+class SoulGoodie:public GhostRacerActivatedObject {
+    public:
+        SoulGoodie(StudentWorld* world, double startX, double startY);
+        ~SoulGoodie();
     
     protected:
         virtual void activate();
@@ -209,28 +232,6 @@ class HolyWaterGoodie:public HolyWaterAffectedObject {
     
     protected:
         virtual void activate();
-};
-
-class SoulGoodie:public GhostRacerActivatedObject {
-    public:
-        SoulGoodie(StudentWorld* world, double startX, double startY);
-        ~SoulGoodie();
-    
-    protected:
-        virtual void activate();
-};
-
-class HolyWaterProjectile:public Object {
-    public:
-        HolyWaterProjectile(StudentWorld* world, double startX, double startY, int startDirection);
-        ~HolyWaterProjectile();
-        virtual void doSomething();
-    
-    protected:
-        virtual void move();
-        
-    private:
-        int m_pixels_moved;
 };
 
 #endif // ACTOR_H_

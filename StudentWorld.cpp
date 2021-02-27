@@ -1,4 +1,5 @@
 #include "StudentWorld.h"
+#include "Actor.h"
 #include "GameConstants.h"
 #include <string>
 #include <sstream>
@@ -26,7 +27,7 @@ StudentWorld::~StudentWorld() {
     cleanUp();
 }
 
-// initiates Ghost Racer and border lines
+// dynamically adds Ghost Racer and border lines
 int StudentWorld::init()
 {
     m_nSouls = getLevel() * 2 + 5;
@@ -59,6 +60,7 @@ int StudentWorld::move()
         if (m_nSouls - m_soulsSaved <= 0) {
             // increment score by bonus
             increaseScore(m_bonus);
+            playSound(SOUND_FINISHED_LEVEL);
             return GWSTATUS_FINISHED_LEVEL;
         }
         it++;
@@ -75,7 +77,7 @@ int StudentWorld::move()
     }
     // adjust last white border's y-position
     m_last_white_border_y += (-4 - m_gr->getVertSpeed());
-    // add actors necessary
+    // add actors if necessary
     addNewBorderLines();
     addNewHumanPed();
     addNewZombiePed();
@@ -155,7 +157,7 @@ bool StudentWorld::sprayOverlappingHolyWaterAffectedActor(HolyWaterProjectile* h
     return false;
 }
 
-// find the closest collision avoidance worthy actor in front or or behind the zombie cab
+// returns the closest collision avoidance worthy actor in front or behind the zombie cab
 Actor* StudentWorld::closestCollisionAvoidanceWorthyActor(ZombieCab* zc, string front_or_back) {
     list<Actor*>::iterator it;
     it = actorList.begin();

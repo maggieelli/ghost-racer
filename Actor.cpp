@@ -75,27 +75,6 @@ void Actor::setHorizSpeed(double speed) {
     m_horiz_speed = speed;
 }
 
-Object::Object(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, int depth)
-    : Actor(world, -4, 0, false, imageID, startX, startY, startDirection, size, depth) {
-}
-
-Object::~Object() {
-}
-
-BorderLine::BorderLine(StudentWorld* world, int imageID, double startX, double startY)
-    : Object(world, imageID, startX, startY, 0, 2) {
-}
-
-BorderLine::~BorderLine() {
-}
-
-void BorderLine::doSomething() {
-    move();
-    if (isOffscreen()) {
-        die();
-    }
-}
-
 DamageableActor::DamageableActor(StudentWorld* world, int health, double vert_speed, double horiz_speed, int imageID, double startX, double startY, int startDirection, double size)
     : Actor(world, vert_speed, horiz_speed, true, imageID, startX, startY, startDirection, size) {
     m_health = health;
@@ -113,7 +92,7 @@ void DamageableActor::setHealth(int health) {
 }
 
 GhostRacer::GhostRacer(StudentWorld* world)
-: DamageableActor(world, 100, 0, 0, IID_GHOST_RACER, GHOST_RACER_X, GHOST_RACER_Y, 90, 4) {
+: DamageableActor(world, GHOST_RACER_START_HEALTH, 0, 0, IID_GHOST_RACER, GHOST_RACER_X, GHOST_RACER_Y, 90, 4) {
     m_holy_water = 10;
 }
 
@@ -205,10 +184,14 @@ void GhostRacer::damage(int hit_damage) {
     }
 }
 
-// heals Ghost Racer by specified amount of heal points
+// heals Ghost Racer by specified amount of heal points, max health 100
 void GhostRacer::heal(int heal_points) {
-    if (getHealth() < 100) {
+    int canBeHealedBy = GHOST_RACER_START_HEALTH - getHealth();
+    if (canBeHealedBy >= heal_points) {
         setHealth(getHealth() + heal_points);
+    }
+    else {
+        setHealth(getHealth() + canBeHealedBy);
     }
 }
 
@@ -333,6 +316,7 @@ void ZombiePed::doSomething() {
         setHealth(getHealth() - 2);
         die();
         getWorld()->playSound(SOUND_PED_DIE);
+        getWorld()->increaseScore(ZOMBIE_PED_SCORE);
         return;
     }
     // if within 30 pixels left or right and is in front of Ghost Racer
@@ -470,6 +454,55 @@ void ZombieCab::pickNewMovementPlan() {
     setVertSpeed(getVertSpeed() + randInt(-2, 2));
 }
 
+Object::Object(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, int depth)
+    : Actor(world, -4, 0, false, imageID, startX, startY, startDirection, size, depth) {
+}
+
+Object::~Object() {
+}
+
+BorderLine::BorderLine(StudentWorld* world, int imageID, double startX, double startY)
+    : Object(world, imageID, startX, startY, 0, 2) {
+}
+
+BorderLine::~BorderLine() {
+}
+
+void BorderLine::doSomething() {
+    move();
+}
+
+HolyWaterProjectile::HolyWaterProjectile(StudentWorld* world, double startX, double startY, int startDirection)
+: Object(world, IID_HOLY_WATER_PROJECTILE, startX, startY, startDirection, 1, 1) {
+    m_pixels_moved = 0;
+}
+
+HolyWaterProjectile::~HolyWaterProjectile() {
+}
+
+void HolyWaterProjectile::doSomething() {
+    if (!isAlive()) {
+        return;
+    }
+    // call function to spray an overlapping holy water affected actor
+    if (getWorld()->sprayOverlappingHolyWaterAffectedActor(this)) {
+        // if it completed successfully and returned true, die
+        die();
+        return;
+    }
+    move();
+}
+
+void HolyWaterProjectile::move() {
+    moveForward(SPRITE_HEIGHT);
+    m_pixels_moved += SPRITE_HEIGHT;
+    // if it has moved 160 pixels or is offscreen, die
+    if (m_pixels_moved >= 160 || isOffscreen()) {
+        die();
+        return;
+    }
+}
+
 GhostRacerActivatedObject::GhostRacerActivatedObject(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size, bool mustRotate)
 : Object(world, imageID, startX, startY, startDirection, size) {
     m_mustRotate = mustRotate;
@@ -520,6 +553,21 @@ void OilSlick::activate() {
     getWorld()->getGR()->setDirection(getWorld()->getGR()->getDirection() + rand_spin);
 }
 
+SoulGoodie::SoulGoodie(StudentWorld* world, double startX, double startY)
+: GhostRacerActivatedObject(world, IID_SOUL_GOODIE, startX, startY, 0, 4, true) {
+}
+
+SoulGoodie::~SoulGoodie() {
+}
+
+void SoulGoodie::activate() {
+    // increment count of souls saved in StudentWorld
+    getWorld()->saveSoul();
+    die();
+    getWorld()->playSound(SOUND_GOT_SOUL);
+    getWorld()->increaseScore(SOUL_GOODIE_SCORE);
+}
+
 HolyWaterAffectedObject::HolyWaterAffectedObject(StudentWorld* world, int imageID, double startX, double startY, int startDirection, double size)
 : GhostRacerActivatedObject(world, imageID, startX, startY, startDirection, size) {
 }
@@ -561,50 +609,4 @@ void HolyWaterGoodie::activate() {
     die();
     getWorld()->playSound(SOUND_GOT_GOODIE);
     getWorld()->increaseScore(HOLY_WATER_GOODIE_SCORE);
-}
-
-SoulGoodie::SoulGoodie(StudentWorld* world, double startX, double startY)
-: GhostRacerActivatedObject(world, IID_SOUL_GOODIE, startX, startY, 0, 4, true) {
-}
-
-SoulGoodie::~SoulGoodie() {
-}
-
-void SoulGoodie::activate() {
-    // increment count of souls saved in StudentWorld
-    getWorld()->saveSoul();
-    die();
-    getWorld()->playSound(SOUND_GOT_SOUL);
-    getWorld()->increaseScore(SOUL_GOODIE_SCORE);
-}
-
-HolyWaterProjectile::HolyWaterProjectile(StudentWorld* world, double startX, double startY, int startDirection)
-: Object(world, IID_HOLY_WATER_PROJECTILE, startX, startY, startDirection, 1, 1) {
-    m_pixels_moved = 0;
-}
-
-HolyWaterProjectile::~HolyWaterProjectile() {
-}
-
-void HolyWaterProjectile::doSomething() {
-    if (!isAlive()) {
-        return;
-    }
-    // call function to spray an overlapping holy water affected actor
-    if (getWorld()->sprayOverlappingHolyWaterAffectedActor(this)) {
-        // if it completed successfully and returned true, die
-        die();
-        return;
-    }
-    move();
-}
-
-void HolyWaterProjectile::move() {
-    moveForward(SPRITE_HEIGHT);
-    m_pixels_moved += SPRITE_HEIGHT;
-    // if it has moved 160 pixels or is offscreen, die
-    if (m_pixels_moved >= 160 || isOffscreen()) {
-        die();
-        return;
-    }
 }
